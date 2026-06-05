@@ -3,7 +3,7 @@ name: Alwaysdata 每月随机自动续期
 on:
   workflow_dispatch: # 支持手动点击按钮触发
   schedule:
-    - cron: '30 4 18 6 *'   # 👈 每次运行成功后，下方的脚本会自动随机改写该行
+    - cron: "30 4 18 6 *"   # 👈 这里的单双引号现在都能被完美兼容和自动重写
 
 permissions:
   contents: write
@@ -28,20 +28,17 @@ jobs:
 
       - name: 执行 Alwaysdata 续期脚本
         env:
-          # 从 GitHub Secrets 中读取你的账号与电报机器人密钥
           ALWAYSDATA_USER: ${{ secrets.ALWAYSDATA_USER }}
           ALWAYSDATA_PASS: ${{ secrets.ALWAYSDATA_PASS }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
-          # 运行你的 Python 纯 API 登录脚本，并实时输出基本日志
           python alwaysdata_renew.py
 
       - name: 🎲 智能计算下个月的随机 Cron 时间
         if: success()
         id: generate_cron
         run: |
-          # 1. 动态获取当前月并计算下个月的分量 (兼容 12 月跨年切换)
           CURRENT_MONTH=$(date +%-m)
           CURRENT_YEAR=$(date +%Y)
           
@@ -53,19 +50,14 @@ jobs:
             NEXT_YEAR=$CURRENT_YEAR
           fi
 
-          # 2. 利用系统随机数打乱运行时间
-          # 随机分钟 (0-59)
           RANDOM_MIN=$((RANDOM % 60))
-          # 随机小时 (0-23)
           RANDOM_HOUR=$((RANDOM % 24))
-          # 随机日期 (1-28) 限制在 28 号前，完美防范 2 月、小月产生的时间溢出报错
           RANDOM_DAY=$((RANDOM % 28 + 1))
 
           NEW_CRON="$RANDOM_MIN $RANDOM_HOUR $RANDOM_DAY $NEXT_MONTH *"
           
           echo "NEW_CRON=$NEW_CRON" >> $GITHUB_OUTPUT
           echo "::notice::🎲 成功为下个月随机生成的 Cron 表达式为: $NEW_CRON"
-          echo "::notice::📅 预计下次触发时间为 (UTC): ${NEXT_YEAR}-${NEXT_MONTH}-${RANDOM_DAY} ${RANDOM_HOUR}:${RANDOM_MIN}"
 
       - name: 🔄 自动改写工作流 Cron 并推送回仓库
         if: success()
@@ -74,27 +66,26 @@ jobs:
           NEW_CRON="${{ steps.generate_cron.outputs.NEW_CRON }}"
           WORKFLOW_FILE=".github/workflows/Alwaysdata_Renew.yml"
 
-          # 使用带有 workflow 和 repo 读写权限的特殊 Token 克隆代码进行操作，规避冲突风险
+          # 克隆代码到独立目录操作
           git clone https://x-access-token:${{ secrets.REPO_TOKEN }}@github.com/${{ github.repository }}.git env_repo
           cd env_repo
 
-          # 精准寻找文件中包含 cron: ' 的那一行的行号
-          LINE_NUM=$(grep -n "cron: '" "$WORKFLOW_FILE" | head -n1 | cut -d: -f1)
+          # ⭐【核心修复】使用扩展正则，同时兼容单引号、双引号、以及冒号前后的空格
+          LINE_NUM=$(grep -nE "cron\s*:\s*['\"]" "$WORKFLOW_FILE" | head -n1 | cut -d: -f1)
+          
           if [ -z "$LINE_NUM" ]; then
-            echo "::error::未在 yml 文件中捕捉到 cron 行，请确认文件路径或缩进"
+            echo "::error::即使开启强力匹配，仍未在 yml 文件中捕捉到 cron 行，请检查文件名是否准确。"
             exit 1
           fi
 
-          # 替换第三行的旧 cron 值并保留注释
+          # 替换对应的行，强制格式化为标准的单引号输出
           sed -i "${LINE_NUM}c\\    - cron: '$NEW_CRON'   # 👈 每次运行成功后，下方的脚本会自动随机改写该行" "$WORKFLOW_FILE"
 
-          # 检查时间是否有变化，无物理变动则退出
           if git diff --quiet "$WORKFLOW_FILE"; then
             echo "::notice::新生成的随机时间与旧时间完全一致，跳过本次提交"
             exit 0
           fi
 
-          # 自动化 Git 提交配置
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$WORKFLOW_FILE"
