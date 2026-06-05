@@ -14,8 +14,8 @@
 | `ALWAYSDATA_PASS` | ✅ | Alwaysdata 登录密码 |
 | `TG_BOT_TOKEN` | ❌ | Telegram Bot Token，用于运行结果通知，不填则跳过通知 |
 | `TG_CHAT_ID` | ❌ | Telegram Chat ID，与 `TG_BOT_TOKEN` 配套使用 |
+| `REPO_TOKEN` | ❌ |  |
 
-> `REPO_TOKEN` **无需配置**，工作流已改为使用 GitHub 内置的 `GITHUB_TOKEN`，自动拥有推送权限。
 
 ---
 
