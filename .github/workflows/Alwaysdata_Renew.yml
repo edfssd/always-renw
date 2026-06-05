@@ -5,11 +5,6 @@ on:
   schedule:
     - cron: '41 20 1 7 *'   # 👈 每次运行成功后，下方的脚本会自动随机改写该行
 
-# 核心授权：允许 GitHub Actions 默认的临时 Token 拥有修改和推送代码的权限
-permissions:
-  contents: write
-  actions: write
-
 jobs:
   alwaysdata_renew:
     runs-on: ubuntu-latest
@@ -17,7 +12,9 @@ jobs:
     steps:
       - name: 拉取仓库代码
         uses: actions/checkout@v4
-        # 默认 persist-credentials: true 会保留自带的 GITHUB_TOKEN，供最后一步 push 使用
+        with:
+          # 👇 核心修复：必须挂载带有 workflow 权限的个人访问令牌 (PAT)
+          token: ${{ secrets.REPO_TOKEN }} 
 
       - name: 设置 Python 环境
         uses: actions/setup-python@v5
@@ -66,7 +63,7 @@ jobs:
           set -e
           NEW_CRON="${{ steps.generate_cron.outputs.NEW_CRON }}"
           
-          # ⚠️ 请确保此处的文件名与你仓库中的实际文件名大小写完全一致！
+          # 根据你的报错日志，确认文件名为 Alwaysdata_Renew.yml
           WORKFLOW_FILE=".github/workflows/Alwaysdata_Renew.yml"
 
           # 强力匹配含有 cron 的行
@@ -86,12 +83,12 @@ jobs:
             exit 0
           fi
 
-          # 配置官方机器人身份并原路推送（无需 REPO_TOKEN）
+          # Checkout 步骤已自动将 REPO_TOKEN 注入本地 git config，这里直接提交推送即可
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$WORKFLOW_FILE"
           git commit -m "🔄 自动混淆排期：更新下月 Alwaysdata 随机 Cron 触发点" \
                    -m "新 Cron 表达式: $NEW_CRON"
           git push
           
-          echo "::notice::✅ 随机定时任务已成功持久化并使用内置 Token 推送至仓库！"
+          echo "::notice::✅ 随机定时任务已成功持久化并推送至当前仓库！"
