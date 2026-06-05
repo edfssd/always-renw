@@ -1,7 +1,7 @@
 name: Alwaysdata 每月随机自动续期
 
 on:
-  workflow_dispatch: # 支持手动点击按钮触发
+  workflow_dispatch:
   schedule:
     - cron: '16 22 22 7 *'   # 👈 每次运行成功后，下方的脚本会自动随机改写该行
 
@@ -66,11 +66,10 @@ jobs:
           NEW_CRON="${{ steps.generate_cron.outputs.NEW_CRON }}"
           WORKFLOW_FILE=".github/workflows/Alwaysdata_Renew.yml"
 
-          # 克隆代码到独立目录操作
-          git clone https://x-access-token:${{ secrets.REPO_TOKEN }}@github.com/${{ github.repository }}.git env_repo
+          # 使用内置 GITHUB_TOKEN 克隆，无需 REPO_TOKEN
+          git clone https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git env_repo
           cd env_repo
 
-          # ⭐【核心修复】使用扩展正则，同时兼容单引号、双引号、以及冒号前后的空格
           LINE_NUM=$(grep -nE "cron\s*:\s*['\"]" "$WORKFLOW_FILE" | head -n1 | cut -d: -f1)
           
           if [ -z "$LINE_NUM" ]; then
@@ -78,7 +77,6 @@ jobs:
             exit 1
           fi
 
-          # 替换对应的行，强制格式化为标准的单引号输出
           sed -i "${LINE_NUM}c\\    - cron: '$NEW_CRON'   # 👈 每次运行成功后，下方的脚本会自动随机改写该行" "$WORKFLOW_FILE"
 
           if git diff --quiet "$WORKFLOW_FILE"; then
