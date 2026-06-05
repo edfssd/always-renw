@@ -3,7 +3,7 @@ name: Alwaysdata 每月随机自动续期
 on:
   workflow_dispatch: # 支持手动点击按钮触发
   schedule:
-    - cron: "30 4 18 6 *"   # 👈 这里的单双引号现在都能被完美兼容和自动重写
+    - cron: '11 5 25 7 *'   # 👈 每次运行成功后，下方的脚本会自动随机改写该行
 
 permissions:
   contents: write
